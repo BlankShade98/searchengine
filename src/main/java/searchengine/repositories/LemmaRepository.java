@@ -13,7 +13,7 @@ import java.util.Optional;
 @Repository
 public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
     Optional<Lemma> findByLemmaAndSite(String lemma, Site site);
-    List<Lemma> findByLemmaIn(List<String> lemmas);
+
 
     @Query("SELECT COUNT(l) FROM Lemma l WHERE l.lemma = ?1 AND l.site IN ?2")
     int countByLemmaAndSiteIn(String lemma, List<Site> sites);

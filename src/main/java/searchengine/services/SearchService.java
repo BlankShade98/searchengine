@@ -9,16 +9,13 @@ import searchengine.model.Page;
 import searchengine.model.Site;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
-import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import org.jsoup.Jsoup;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -27,9 +24,10 @@ public class SearchService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final SiteRepository siteRepository;
+    private final LemmasFinder lemmasFinder;
 
     public SearchResponse search(String query, String siteUrl, int offset, int limit) {
-        if (query.isEmpty()) {
+        if (query == null || query.isEmpty()) {
             SearchResponse response = new SearchResponse();
             response.setResult(false);
             response.setError("Задан пустой поисковый запрос");
@@ -39,20 +37,11 @@ public class SearchService {
         List<Site> sites;
         if (siteUrl != null && !siteUrl.isEmpty()) {
             Optional<Site> siteOptional = siteRepository.findByUrl(siteUrl);
-            sites = siteOptional.map(Stream::of).orElseGet(Stream::empty).collect(Collectors.toList());
+            sites = siteOptional.stream().collect(Collectors.toList());
         } else {
             sites = siteRepository.findAll();
         }
 
-        LemmasFinder lemmasFinder;
-        try {
-            lemmasFinder = new LemmasFinder();
-        } catch (IOException e) {
-            SearchResponse response = new SearchResponse();
-            response.setResult(false);
-            response.setError("Ошибка лемматизатора: " + e.getMessage());
-            return response;
-        }
         Map<String, Integer> queryLemmas = lemmasFinder.findLemmas(query);
         if (queryLemmas.isEmpty()) {
             SearchResponse response = new SearchResponse();

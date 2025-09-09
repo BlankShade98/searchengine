@@ -6,10 +6,8 @@ import org.springframework.stereotype.Repository;
 import searchengine.model.SearchIndex;
 import searchengine.model.Page;
 import searchengine.model.Site;
-import searchengine.model.Lemma;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface IndexRepository extends JpaRepository<SearchIndex, Integer> {

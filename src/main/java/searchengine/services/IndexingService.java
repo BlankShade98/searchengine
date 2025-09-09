@@ -1,9 +1,11 @@
 package searchengine.services;
 
+import searchengine.dto.ApiResponse;
+
 public interface IndexingService {
-    boolean startIndexing();
-    boolean stopIndexing();
+    ApiResponse startIndexing();
+    ApiResponse stopIndexing();
     boolean isIndexing();
     boolean isIndexingComplete();
-    boolean indexPage(String url);
+    ApiResponse indexPage(String url);
 }

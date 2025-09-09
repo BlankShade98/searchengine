@@ -7,6 +7,7 @@ import org.jsoup.Jsoup;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import searchengine.config.SitesList;
+import searchengine.dto.ApiResponse;
 import searchengine.model.Lemma;
 import searchengine.model.Page;
 import searchengine.model.SearchIndex;
@@ -19,12 +20,7 @@ import searchengine.repositories.SiteRepository;
 
 import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -48,9 +44,12 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     @Transactional
-    public boolean startIndexing() {
+    public ApiResponse startIndexing() {
         if (isIndexing.get()) {
-            return false;
+            ApiResponse response = new ApiResponse();
+            response.setResult(false);
+            response.setError("Индексация уже запущена");
+            return response;
         }
         isIndexing.set(true);
 
@@ -73,7 +72,7 @@ public class IndexingServiceImpl implements IndexingService {
                 .collect(Collectors.toList());
 
         forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
-        for (Site site : configuredSites) {
+        for (Site site : configuredSites) { // Consider refactoring to a single RecursiveAction wrapper
             WebCrawler task = new WebCrawler(site.getUrl(), site, siteRepository, pageRepository, lemmaRepository, indexRepository, isIndexing, lemmasFinder);
             forkJoinPool.execute(task);
         }
@@ -81,8 +80,9 @@ public class IndexingServiceImpl implements IndexingService {
         new Thread(() -> {
             try {
                 forkJoinPool.shutdown();
-                forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
-                updateSiteStatusOnCompletion(configuredSites);
+                if (forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS)) {
+                    updateSiteStatusOnCompletion(configuredSites);
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 updateSiteStatusOnFailure(configuredSites, "Индексация прервана");
@@ -91,13 +91,16 @@ public class IndexingServiceImpl implements IndexingService {
             }
         }).start();
 
-        return true;
+        return ApiResponse.ok();
     }
 
     @Override
-    public boolean stopIndexing() {
+    public ApiResponse stopIndexing() {
         if (!isIndexing.get()) {
-            return false;
+            ApiResponse response = new ApiResponse();
+            response.setResult(false);
+            response.setError("Индексация не запущена");
+            return response;
         }
 
         isIndexing.set(false);
@@ -107,7 +110,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         List<Site> sitesToIndex = siteRepository.findByStatus(Status.INDEXING);
         updateSiteStatusOnFailure(sitesToIndex, "Индексация остановлена пользователем");
-        return true;
+        return ApiResponse.ok();
     }
 
     private void updateSiteStatusOnCompletion(List<Site> sites) {
@@ -148,14 +151,17 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     @Transactional
-    public boolean indexPage(String url) {
+    public ApiResponse indexPage(String url) {
         searchengine.config.Site siteConfig = sitesList.getSites().stream()
                 .filter(s -> url.startsWith(s.getUrl()))
                 .findFirst()
                 .orElse(null);
 
         if (siteConfig == null) {
-            return false;
+            ApiResponse response = new ApiResponse();
+            response.setResult(false);
+            response.setError("Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
+            return response;
         }
 
         Site siteEntity = siteRepository.findByUrl(siteConfig.getUrl()).orElseGet(() -> {
@@ -199,7 +205,7 @@ public class IndexingServiceImpl implements IndexingService {
 
             int statusCode = response.statusCode();
             String textContent = TIKA_INSTANCE.parseToString(new ByteArrayInputStream(response.bodyAsBytes()));
-            String pageContentToSave = response.contentType() != null && response.contentType().toLowerCase().contains("text/html")
+            String pageContentToSave = response.contentType() != null && Objects.requireNonNull(response.contentType()).toLowerCase().contains("text/html")
                     ? response.parse().html()
                     : textContent;
 
@@ -235,6 +241,6 @@ public class IndexingServiceImpl implements IndexingService {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return true;
+        return ApiResponse.ok();
     }
 }
