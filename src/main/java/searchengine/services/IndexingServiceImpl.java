@@ -72,7 +72,7 @@ public class IndexingServiceImpl implements IndexingService {
                 .collect(Collectors.toList());
 
         forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
-        for (Site site : configuredSites) { // Consider refactoring to a single RecursiveAction wrapper
+        for (Site site : configuredSites) {
             WebCrawler task = new WebCrawler(site.getUrl(), site, siteRepository, pageRepository, lemmaRepository, indexRepository, isIndexing, lemmasFinder);
             forkJoinPool.execute(task);
         }

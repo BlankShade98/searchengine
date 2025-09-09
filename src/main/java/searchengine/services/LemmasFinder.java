@@ -27,7 +27,7 @@ public record LemmasFinder(LuceneMorphology russianMorphology, LuceneMorphology 
 
             List<String> wordBaseForms = currentMorphology.getMorphInfo(word);
             if (!wordBaseForms.isEmpty() && isServiceWord(wordBaseForms.get(0))) {
-                continue; // Skip service words
+                continue;
             }
 
             List<String> normalForms = currentMorphology.getNormalForms(word);
