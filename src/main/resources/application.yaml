@@ -4,8 +4,8 @@ indexing-settings:
   sites:
     - url: https://www.playback.ru
       name: PlayBack.Ru
-    - url: https://www.svetlovka.ru/
-      name: Svetlovka.Ru
+    - url: https://sendel.ru
+      name: Sendel.Ru
 
 
 
@@ -16,7 +16,7 @@ spring:
   datasource:
     username: root
     password: 2cd8bca9
-    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci
   jpa:
     properties:
       hibernate:

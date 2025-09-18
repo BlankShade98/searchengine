@@ -18,11 +18,15 @@ public record LemmasFinder(LuceneMorphology russianMorphology, LuceneMorphology 
         while (matcher.find()) {
             String word = matcher.group();
 
-            LuceneMorphology currentMorphology;
+            LuceneMorphology currentMorphology = null;
             if (isRussian(word)) {
                 currentMorphology = russianMorphology;
-            } else {
+            } else if (isEnglish(word)) {
                 currentMorphology = englishMorphology;
+            }
+
+            if (currentMorphology == null) {
+                continue;
             }
 
             List<String> wordBaseForms = currentMorphology.getMorphInfo(word);
@@ -40,7 +44,11 @@ public record LemmasFinder(LuceneMorphology russianMorphology, LuceneMorphology 
     }
 
     private boolean isRussian(String word) {
-        return word.chars().anyMatch(c -> c >= 'а' && c <= 'я');
+        return word.chars().allMatch(c -> c >= 'а' && c <= 'я');
+    }
+
+    private boolean isEnglish(String word) {
+        return word.chars().allMatch(c -> c >= 'a' && c <= 'z');
     }
 
     private boolean isServiceWord(String wordInfo) {

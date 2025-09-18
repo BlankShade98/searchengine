@@ -43,15 +43,7 @@ public class ApiController {
                                                  @RequestParam(name = "site", required = false) String site,
                                                  @RequestParam(name = "offset", defaultValue = "0") int offset,
                                                  @RequestParam(name = "limit", defaultValue = "20") int limit) {
-        if (indexingService.isIndexing()) {
-            SearchResponse response = new SearchResponse();
-            response.setResult(false);
-            response.setError("Индексация не завершена");
-            return ResponseEntity.ok(response);
-        }
-
-        SearchResponse response = searchService.search(query, site, offset, limit);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(searchService.search(query, site, offset, limit));
     }
 
     @PostMapping("/indexPage")

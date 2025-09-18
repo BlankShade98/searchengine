@@ -13,8 +13,6 @@ import searchengine.repositories.SiteRepository;
 import org.jsoup.Jsoup;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,8 +23,16 @@ public class SearchService {
     private final IndexRepository indexRepository;
     private final SiteRepository siteRepository;
     private final LemmasFinder lemmasFinder;
+    private final IndexingService indexingService;
 
     public SearchResponse search(String query, String siteUrl, int offset, int limit) {
+        if (indexingService.isIndexing()) {
+            SearchResponse response = new SearchResponse();
+            response.setResult(false);
+            response.setError("Индексация не завершена");
+            return response;
+        }
+
         if (query == null || query.isEmpty()) {
             SearchResponse response = new SearchResponse();
             response.setResult(false);
@@ -135,25 +141,52 @@ public class SearchService {
         return searchResults;
     }
 
+    private static final int MAX_SNIPPET_LENGTH = 300;
+
     private String buildSnippet(String pageContent, Set<String> queryLemmas) {
         String pageText = Jsoup.parse(pageContent).text();
-        StringBuilder snippetBuilder = new StringBuilder();
-        int snippetLength = 200;
+        List<String> textWords = Arrays.asList(pageText.toLowerCase().split("\\s+"));
+        Set<Integer> lemmaPositions = new HashSet<>();
 
-        for (String lemma : queryLemmas) {
-            Pattern pattern = Pattern.compile("\\b" + lemma + "\\b", Pattern.CASE_INSENSITIVE);
-            Matcher matcher = pattern.matcher(pageText);
-
-            while (matcher.find()) {
-                int start = Math.max(0, matcher.start() - snippetLength / 2);
-                int end = Math.min(pageText.length(), matcher.end() + snippetLength / 2);
-
-                String fragment = pageText.substring(start, end);
-                String highlightedFragment = fragment.replaceAll("(?i)" + Pattern.quote(matcher.group()), "<b>" + matcher.group() + "</b>");
-
-                snippetBuilder.append("...").append(highlightedFragment).append("...");
+        for (int i = 0; i < textWords.size(); i++) {
+            String word = textWords.get(i).replaceAll("[^а-яё]", "");
+            if (word.isEmpty()) {
+                continue;
+            }
+            Set<String> wordLemmas = lemmasFinder.findLemmas(word).keySet();
+            if (wordLemmas.stream().anyMatch(queryLemmas::contains)) {
+                lemmaPositions.add(i);
             }
         }
-        return snippetBuilder.toString();
+
+        StringBuilder snippet = new StringBuilder();
+        List<Integer> sortedPositions = new ArrayList<>(lemmaPositions);
+        Collections.sort(sortedPositions);
+
+        int i = 0;
+        while (i < sortedPositions.size() && snippet.length() < MAX_SNIPPET_LENGTH) {
+            int position = sortedPositions.get(i);
+            int start = Math.max(0, position - 5);
+            int end = Math.min(textWords.size(), position + 5);
+
+            String fragment = String.join(" ", textWords.subList(start, end))
+                    .replaceAll("\\s+", " ").trim();
+
+            snippet.append(fragment).append("... ");
+            i++;
+        }
+
+        return highlightLemmas(snippet.toString(), queryLemmas);
+    }
+
+    private String highlightLemmas(String text, Set<String> queryLemmas) {
+        String[] words = text.split("(?=[.,!?;:]|\\s)");
+        return Arrays.stream(words).map(word -> {
+            String cleanWord = word.toLowerCase().replaceAll("[^а-яё]", "");
+            if (cleanWord.isEmpty()) {
+                return word;
+            }
+            return lemmasFinder.findLemmas(cleanWord).keySet().stream().anyMatch(queryLemmas::contains) ? "<b>" + word + "</b>" : word;
+        }).collect(Collectors.joining());
     }
 }
